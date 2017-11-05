@@ -1,0 +1,3 @@
+Pillow>=4.3
+PyAutoGUI>=0.9
+pyscreenshot>=0.4
