@@ -1,18 +1,18 @@
+"""Tools for extracting and processing tile images and creating composites for image recognition."""
 import argparse
+import datetime
+import hashlib
 import logging
 import pathlib
-import hashlib
 import re
+from collections import defaultdict
+
 import PIL.Image
 import PIL.ImageChops
 import pyscreenshot
-import datetime
 
-from collections import defaultdict
-
-from board import Tileset
-import imageutil
-
+from sigsolve import imageutil
+from sigsolve.board import Tileset
 
 logging.basicConfig()
 log = logging.getLogger()

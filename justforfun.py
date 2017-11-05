@@ -1,3 +1,4 @@
+"""Quick and dirty script to build a image of all of the tiles"""
 import PIL.Image
 import pathlib
 import random

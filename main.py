@@ -1,13 +1,14 @@
-from board import Tile, Tileset
-from vision import Vision, BoardVision
-from pathlib import Path
-import re
-from collections import defaultdict
 import itertools
 import operator
+import re
 import time
-import pyautogui
+from collections import defaultdict
+from pathlib import Path
 
+import pyautogui
+from vision import Vision, BoardVision
+
+from sigsolve.board import Tile, Tileset
 
 pyautogui.FAILSAFE = True
 """
@@ -401,4 +402,3 @@ if __name__ == '__main__':
 
         click((890, 890), up=0.25)
         time.sleep(5)
-

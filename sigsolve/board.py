@@ -1,7 +1,7 @@
-import itertools
 import collections
+import itertools
 
-from geometry import DEFAULT_GEOMETRY, Point, Rect
+from sigsolve.geometry import DEFAULT_GEOMETRY, Point, Rect
 
 
 class Tile:

@@ -1,4 +1,6 @@
-from collections import namedtuple, Iterable
+"""Geometry utility classes."""
+from collections import namedtuple
+from collections.abc import Iterable
 
 
 class Point(namedtuple('Point', 'x y')):

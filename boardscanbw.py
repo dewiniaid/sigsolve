@@ -1,18 +1,18 @@
+"""Old black-and-white version of the board/tile scanning and compositing utility.  Nonfunctional."""
 import argparse
+import datetime
+import hashlib
 import logging
 import pathlib
-import hashlib
 import re
+from collections import defaultdict
+
 import PIL.Image
 import PIL.ImageChops
 import pyscreenshot
-import datetime
 
-from collections import defaultdict
-
-from board import Tileset
-import imageutil
-
+from sigsolve import imageutil
+from sigsolve.board import Tileset
 
 logging.basicConfig()
 log = logging.getLogger()
@@ -249,7 +249,7 @@ def main(*args, **kwargs):
             extrema = generate_composite(fn, files, extrema)
 
         fn = compositesdir / 'weightings.png'
-        imageutil.equalize(PIL.Image.eval(PIL.ImageChops.difference(*extrema), lambda x: 255-x)).save(fn)
+        imageutil.equalize(PIL.Image.eval(PIL.ImageChops.difference(*extrema), lambda x: 255 - x)).save(fn)
 
 
     if opts.test:
