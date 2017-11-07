@@ -3,11 +3,7 @@ Image utility functions.
 """
 import PIL.Image
 import PIL.ImageChops
-
-try:
-    import numpy as np
-except ImportError:
-    numpy = None
+import numpy
 
 
 def equalize(image, levels=256, grayscale=False):
@@ -89,3 +85,15 @@ def score(composite, image, exponent=1):
 
         # return
     return sum(x**exponent for x in diff.getdata(0)) / (diff.width * diff.height)
+
+
+def numpify(image):
+    # result = numpy.frombuffer(image.tobytes(), dtype=numpy.uint8)
+    # return result.reshape((*image.size, 3))
+    # return (
+    #     numpy.array(image, dtype=numpy.uint8).reshape((image))
+    #         # .frombuffer(image.tobytes(), dtype=numpy.uint8)
+    #         # .reshape((image.size[0], image.size[1], -1))
+    #         # .transpose((1, 0, 2))
+    # )
+    return numpy.array(image, dtype=numpy.uint8)

@@ -62,15 +62,6 @@ FORBIDDEN
     Removing a salt and an element when the number of remaining salts is equal to the number of elements that have an
     odd number.
 """
-#
-# CARDINALS = {'water', 'air', 'earth', 'fire'}
-# METALS = {}
-# _last = None
-# for _m in ('mercury', 'tin', 'iron', 'copper', 'silver', 'gold'):
-#     METALS[_m] = _last
-#     _last = _m
-# del _last
-# del _m
 
 
 class SolverFrame:
@@ -119,6 +110,7 @@ class Solver:
         return self.solution
 
     def solve(self, steps=None):
+        self.won = None
         if self.stack is None:
             bitmap = self.board.bitmap()
             self.iterations = 0
@@ -142,12 +134,14 @@ class Solver:
                     self.save_solution()
                 self.stack.pop()
                 if not self.stack:
+                    self.won = False
                     return False  # Loss condition triggered.
                 continue
 
             # Still here, so bitmap was zero meaning no tiles exist after doing this move.
             # WE WIN!
             self.save_solution()
+            self.won = True
             return True
         # Ran out of steps
         return None
@@ -263,312 +257,12 @@ class Solver:
         return moves
 
 
-    def iter_run(self, steps=None):
-        if self.stack is None:
-            bitmap = self.board.bitmap()
-            self.iterations = 0
-            self.bitmaps = {bitmap}
-            self.bitmap_hits = 0
-            self.stack = [SolverFrame(self, bitmap)]
-
-        while steps is None or steps > 0:
-            self.iterations += 1
-            top = self.stack[-1]
-            if steps:
-                steps -= 1
-            bitmap = top.run()
-
-            if bitmap:  # Successfully made a move, additional moves exist
-                self.stack.append(SolverFrame(self, bitmap))
-                continue
-            if bitmap is None:  # Failed to make a move, so backtracking.
-                if len(self.stack) > len(self.solution):  # Save new best attempt if it is one.
-                    self.save_solution()
-                self.stack.pop()
-                if not self.stack:
-                    return False  # Loss condition triggered.
-                continue
-
-            # Still here, so bitmap was zero meaning no tiles exist after doing this move.
-            # WE WIN!
-            self.save_solution()
-            return True
-        # Ran out of steps
-        return None
-
-#
-#
-#                 move = top.pop()
-#                 _execute(move, False)
-#                 bitmap &= ~Tile.bitmap(move)
-#
-#                     if (bitmap & move_bits) in self.bitmaps:
-#                         # Discarded move.  Not an iteration
-#                         self.bitmap_hits += 1
-#                         continue
-#                     bitmap &= move_bits
-#                     self.bitmaps.add(bitmap)
-#                     _execute(move, False)
-#
-#
-#
-#
-#
-#
-#
-#
-#
-# class GameState:
-#     def __init__(self, board):
-#         self.board = board
-#         self.stack = None
-#         self.solution = []
-#         self.won = None
-#         self.bitmaps = set()
-#         self.bitmap_hits = 0
-#         self.iterations = 0
-#
-#     def _checkwin(self):
-#         self.won = all(not tiles for element, tiles in self.board.catalog) or None
-#         return self.won
-#
-#     def run(self, steps=None):
-#         if self.stack is None:
-#             self.stack = [self.valid_moves()]
-#             self.iterations = 0
-#             self.bitmaps = set()
-#             self.bitmap_hits = 0
-#         top = self.stack[-1]
-#
-#         def _execute(tiles, exists):
-#             for tile in tiles:
-#                 tile.exists = exists
-#
-#         bitmap = self.board.bitmap()
-#
-#         while steps is None or steps > 0:
-#             if steps > 0:
-#                 steps -= 1
-#             if top:  # Have a move available.
-#                 move = top.pop()
-#                 _execute(move, False)
-#                 bitmap &= ~Tile.bitmap(move)
-#
-#                     if (bitmap & move_bits) in self.bitmaps:
-#                         # Discarded move.  Not an iteration
-#                         self.bitmap_hits += 1
-#                         continue
-#                     bitmap &= move_bits
-#                     self.bitmaps.add(bitmap)
-#                     _execute(move, False)
-#
-#
-#
-#
-#
-#                 exists = False
-#             else:  # No moves available.
-#
-#
-#
-#         if self.stack is None:
-#             self.stack = []
-#         move = self.stack[-1].advance()
-#         if move:
-#             if self._checkwin():
-#                 self.solution = list(frame.undo for frame in self.stack)
-#                 return None
-#             self.stack.append(MoveStackFrame(self))
-#         if not move:
-#             self.stack.pop()
-#             if len(self.stack) > len(self.solution):
-#                 self.solution = list(frame.undo for frame in self.stack)
-#             if not self.stack:
-#                 self.won = False
-#                 return None
-#             move = self.stack[-1].rewind()
-#         return move
-#
-#     def simple_valid_moves(self):
-#         """
-#         Returns a list of valid moves.  Does not optimize.
-#         """
-#         moves = []
-#
-#         board = self.board
-#
-#         catalog = defaultdict(list)
-#         for tile in board.legal_tiles():
-#             element = tile.element
-#             catalog[element].append(tile)
-#
-#         remaining_metals = board.remaining_metals()
-#         if remaining_metals:
-#             metal = remaining_metals[0]
-#             if metal.legal:
-#                 if catalog['quicksilver']:
-#                     moves.extend(itertools.product(catalog['quicksilver'], [remaining_metals[0]]))
-#                 elif len(remaining_metals) == 1:
-#                     return [[metal]]
-#
-#         moves.extend(itertools.product(catalog['vitae'], catalog['mors']))
-#         for cardinal in self.board.CARDINALS:
-#             moves.extend(itertools.combinations(catalog[cardinal], 2))
-#             moves.extend(itertools.product(catalog['salt'], catalog[cardinal]))
-#         moves.extend(itertools.combinations(catalog['salt'], 2))
-#         return moves
-#
-#
-#
-# class MoveStackFrame:
-#     def __init__(self, gamestate):
-#         self.gamestate = gamestate
-#         self.undo = None
-#         # self.moves = set(tuple(move) for move in self.gamestate.valid_moves())
-#         # self.moves = self.gamestate.valid_moves()
-#         self.moves = self.gamestate.valid_moves()
-#         self.bitmap = None
-#         # print(repr(self.moves))
-#
-#     def advance(self):
-#         while True:
-#             if not self.moves:
-#                 return None
-#             move = self.moves.pop()
-#             self.undo = list((tile, tile.element) for tile in move)
-#
-#             # Execute move
-#             for tile in move:
-#                 tile.element = None
-#
-#             # Generate and check against bitmap
-#             self.bitmap = self.gamestate.board.bitmap()
-#             if self.bitmap in self.gamestate.bitmaps:
-#                 self.rewind()
-#                 continue
-#             self.gamestate.bitmaps.add(self.bitmap)
-#             return self.undo
-#             #
-#             #
-#             #
-#             #
-#             # move = list((tile, None) for tile in move)
-#             #
-#             # # for frame in reversed(self.gamestate.stack[:-1]):
-#             # #     if move in frame.moves:
-#             # #         frame.moves.discard(move)
-#             # #     else:
-#             # #         break
-#             #
-#             # # for frame in self.gamestate.stack[:-2]:
-#             # # if len(self.gamestate.stack) > 1:
-#             # #     # If the parent has options A and B, it took A and we took B, there's no point in trying B on the parent
-#             # #     # should we fail.
-#             # #     self.gamestate.stack[-2].moves.discard(move)
-#             # #
-#             # #
-#             # self.undo = list((tile, tile.element) for tile in move)
-#             # move = list((tile, None) for tile in move)
-#             # self._execute(move)
-#
-#     def rewind(self):
-#         undo = self.undo
-#         if not undo:
-#             return None
-#         self.undo = None
-#         for tile, element in undo:
-#             tile.element = element
-#         return undo
-#
-vision = None
-
 def click(where, down=0.05, up=0):
     x, y = where
     pyautogui.mouseDown(x=x, y=y)
     time.sleep(down)
     pyautogui.mouseUp(x=x, y=y)
     time.sleep(up)
-
-def play_round():
-    board = Board()
-
-
-
-    print("Scanning board...")
-
-    boardvision = BoardVision(vision)
-
-    for tile in board.tiles:
-        result = boardvision.match(tile)
-        if result is None:
-            tile.element = None
-        else:
-            tile.element = result.split('.')[0]
-        tile.exists = result is not None
-
-    for rownum, row in enumerate(board.rows[1:-1], start=1):
-        results = []
-        for tile in row[1:-1]:
-            # if tile is None:
-            #     element = '##########'
-            # elif tile.element is None:
-            #     element = ''
-            # else:
-            #     element = tile.element
-            #     if tile.legal:
-            #         element = element.upper()
-            #
-            # result = '{: ^10}'.format(element)
-            results.append(f'{tile:%E}'.center(10))
-
-        ws = '     ' if rownum % 2 else ''
-        outstr = '|'.join(results)
-        print(f'[{rownum}] {ws}|{outstr}|')
-
-    for element, tiles in board.catalog.items():
-        ct = len(tiles)
-        print(f'{element}: {ct} tile(s)')
-
-    state = GameState(board)
-
-    started = time.time()
-    for steps in range(1, 1000000):
-        if steps%10000 == 0:
-            print(f"({steps} steps)")
-        move = state.step()
-        if move:
-            continue
-        if state.won:
-            print(f"Victory after {steps} steps!  Winning moves are:")
-        else:
-            print(f"Loss after {steps} steps!  Best moveset was:")
-        for num, move in enumerate(state.solution, start=1):
-            print(f"#{num}: {move!r}")
-        break
-    else:
-        print("Ran out of steps.")
-        print("Current stack:")
-        for num, frame in enumerate(state.stack, start=1):
-            print(f"#{num}: {frame.undo!r}")
-        print("Best run:")
-        for num, move in enumerate(state.solution, start=1):
-            print(f"#{num}: {move!r}")
-        return state.won
-
-    print("Elapsed time: ", time.time() - started)
-    print("Bitmaps: ", len(state.bitmaps))
-    print("Executing moveset in 5 seconds.   Ctrl+C to abort.")
-    time.sleep(1)
-
-    for num, move in enumerate(state.solution, start=1):
-        print(f"#{num}: {move!r}")
-        for part, (tile, element) in enumerate(move, start=1):
-            x, y = map(int, tile.rect.middle)
-            print(f"... {part}: ({x:4},{y:4}) Clicking on {element}")
-            click(tile.rect.middle, down=0.01, up=0.05)
-
-    time.sleep(2.5)
-    return state.won
 
 
 class Timer:
@@ -596,12 +290,22 @@ class Timer:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
+
 class Program:
+    SORTINDEX = {
+        key: ix for ix, key in enumerate(
+        ('air', 'earth', 'fire', 'water', 'salt',
+         'mors', 'vitae',
+         'quicksilver',
+         'mercury', 'tin', 'iron', 'copper', 'silver', 'gold'
+         )
+        )
+    }
+
     def __init__(self):
         self.opts = None
         self.vision = None
         self.board = Board()
-        self.executor = None
         self.parser = parser = argparse.ArgumentParser(description="Attempts to solve games of Sigmar's Garden.")
         self.timers = {
             'solve': Timer('Solve time'),
@@ -642,11 +346,8 @@ class Program:
         parser.add_argument('-H', '--hopeless', action='store_true',
                             help='Play out moves of a game even if it is determined to be unwinnable.'
                             )
-        parser.add_argument('-P', '--processes', action='store', type=int, default=os.cpu_count() or 1,
-                            help=(
-                                'Use this many worker processes for image recognition.'
-                                '  (0 = do image recognition in the main process)'
-                            )
+        parser.add_argument('-F', '--fast', action='store_true',
+                            help='Attempts ludicrous speed.'
                             )
         parser.epilog = textwrap.dedent("""
             Currently, this only works on images and screenshots that are exactly 1920x1080.
@@ -662,6 +363,7 @@ class Program:
                 continue
             timer = self.timers[key]
             print(f"    {timer.description:20}: {timer.last:.3} sec.")
+        print(f"    {'Total time':20}: {sum(timer.last for timer in self.timers.values()):.3} sec.")
 
         print('Cumulative: ')
         for key in self.timer_order:
@@ -669,10 +371,17 @@ class Program:
                 continue
             timer = self.timers[key]
             print(f"    {timer.description:20}: {timer.elapsed:.3} sec.")
+        print(f"    {'Total time':20}: {sum(timer.elapsed for timer in self.timers.values()):.3} sec.")
 
     def run(self, *args):
         opts = self.opts = self.parser.parse_args(*args)
         log.debug(repr(opts))
+        if opts.fast:
+            opts.mouseup = 0
+            opts.mousedown = 0.0001
+            opts.wait = 0.1
+
+
         self.datadir = Path(opts.data).resolve()
         log.info(f"Data directory is: {self.datadir}")
         baseline = self.datadir / "empty.png"
@@ -686,13 +395,6 @@ class Program:
             log.info(f"Adding composite {file.name} ('{tag}') to Vision ")
             vision.add_composite(tag, file)
 
-        if opts.processes:
-            self.executor = concurrent.futures.ProcessPoolExecutor(max_workers=opts.processes)
-            log.info(f'Process pool configured for {opts.processes} process(es)')
-        else:
-            self.executor = None
-            log.info(f'Process pool not in use.')
-
         print(repr(opts.files))
 
         for path in opts.files:
@@ -705,17 +407,56 @@ class Program:
 
             for f in files:
                 log.info(f'Processing {f}')
-                self.read_board(f)
-                self.solve()
+                if not self.read_board(f):
+                    log.error('Invalid boardstate!  Will try to solve it anyways.')
+                solver = self.solve()
+                if opts.dry_run:
+                    self.play(solver)
+
+        if not opts.play and not opts.dry_run:
+            opts.games = 1
 
         if not opts.files:
-            self.read_board(None)
-            self.solve()
-            self.show_timers()
-            self.read_board(None)
-            self.solve()
+            played = 0
+            while played < opts.games or not opts.games:
+                if played:
+                    log.info('Beginning new game...')
+                    # Click the New Game button
+                    time.sleep(2)
+                    click((890, 890))
+                    time.sleep(5)
+                played += 1
+                log.info(f"===== GAME {played} of {opts.games or 'infinity'} =====")
 
-        self.show_timers()
+                valid = self.read_board(None)
+                if not valid:
+                    log.error('Invalid boardstate!  Will try to solve it anyways.  Disabling playback.')
+                    opts.dry_run = True
+                    opts.games = 1
+                solver = self.solve()
+
+                if opts.play or opts.dry_run:
+                    if not solver.won:
+                        if self.opts.hopeless:
+                            log.warning('Game is not winnable... but let\'s see how it plays out.')
+                        else:
+                            log.warning('Game is not winnable.')
+                            self.show_timers()
+                            continue
+                    self.play(solver)
+                self.show_timers()
+
+
+    def board_is_valid(self):
+        vitae = self.board.remaining('vitae')
+        mors = self.board.remaining('mors')
+        return not (
+            # Invalidation conditions
+            vitae > 4 or mors > 4 or vitae != mors
+            or any(len(tiles) > 8 for element, tiles in self.board.catalog.items() if element in self.board.CARDINALS)
+            or any(len(tiles) > 1 for element, tiles in self.board.catalog.items() if element in self.board.METALS)
+            or self.board.remaining('quicksilver') > 5
+        )
 
     def solve(self):
         with self.timers['solve']:
@@ -733,6 +474,24 @@ class Program:
             for tile in move:
                 print(f"  - Tile #{tile:%n} ({tile:%e at %x, %y})")
 
+        return solver
+
+    def play(self, solver):
+        opts = self.opts
+        time.sleep(opts.wait)
+
+        with self.timers['play']:
+            for num, move in enumerate(solver.solution, start=1):
+                if num > 1:
+                    time.sleep(opts.movewait)
+                print(f"Move #{num}:")
+                for tile in move:
+                    pt = tile.sample_rect.middle
+                    print(f"  - Tile #{tile:%n} ({tile:%e})  Clicking at ({pt.x}, {pt.y})")
+                    if not opts.dry_run:
+                        click(tile.sample_rect.middle, down=opts.mousedown, up=opts.mouseup)
+
+
     def read_board(self, image=None):
         with self.timers['io']:
             if image:
@@ -741,18 +500,11 @@ class Program:
                 self.vision.screenshot()
 
         with self.timers['vision']:
-            data = {}
             for tile in self.board.tiles:
-                data[tile] = self.vision.match(tile, executor=self.executor)
-
-            for tile, result in data.items():
-                if self.executor:
-                    result = result.result()
-
-                if result is None:
-                    tile.element = None
-                else:
-                    tile.element = result.split('.')[0]
+                result = self.vision.match(tile)
+                if result:
+                    result = result.split('.', maxsplit=2)[0]
+                tile.element = result
                 tile.exists = result is not None
 
         for ix, row in enumerate(self.board.rows[1:-1], start=1):
@@ -770,22 +522,17 @@ class Program:
             output = '|'.join(output)
             print(f"{ix:2}: {padding}{output}")
 
+        counts = [
+            f"{element}={len(tiles)}" for element, tiles in sorted(
+                self.board.catalog.items(),
+                key=lambda x: self.SORTINDEX.get(x[0])
+            )
+        ]
+        ok = self.board_is_valid()
+
+        print(f"Element counts: {', '.join(counts)}  valid:{'OK' if ok else '*** not ok ***'}")
+        return ok
+
+
 if __name__ == '__main__':
     Program().run()
-    # board = Board()
-    # print(repr(board.extents()))
-    # initialize()
-    # won = loss = timeout = 0
-    # while True:
-    #     result = play_round()
-    #     if result:
-    #         won += 1
-    #     elif result is False:
-    #         loss += 1
-    #     else:
-    #         timeout = 0
-    #
-    #     print(f"Won: {won} - Loss: {loss} - Timeout: {timeout}")
-    #
-    #     click((890, 890), up=0.25)
-    #     time.sleep(5)
