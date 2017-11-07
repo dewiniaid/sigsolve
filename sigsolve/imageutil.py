@@ -4,6 +4,11 @@ Image utility functions.
 import PIL.Image
 import PIL.ImageChops
 
+try:
+    import numpy as np
+except ImportError:
+    numpy = None
+
 
 def equalize(image, levels=256, grayscale=False):
     """

@@ -12,7 +12,7 @@ import PIL.ImageChops
 import pyscreenshot
 
 from sigsolve import imageutil
-from sigsolve.board import Tileset
+from sigsolve.board import Board
 
 logging.basicConfig()
 log = logging.getLogger()
@@ -67,7 +67,7 @@ def process_image(image, description):
         State.defaultdir.mkdir(exist_ok=True)
 
     if State.board is None:
-        State.board = Tileset()
+        State.board = Board()
 
     generate_index()
 
