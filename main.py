@@ -1,19 +1,17 @@
-import itertools
-import operator
-import re
-import time
-from collections import defaultdict
-from pathlib import Path
 import argparse
-import pyautogui
+import logging
+import re
 import textwrap
-import concurrent.futures
-import os
+import time
+from pathlib import Path
 
-from sigsolve.board import Tile, Board
+import pyautogui
+
+from sigsolve.board import Board
+from sigsolve.solver import Solver
+from sigsolve.util import click, Timer
 from sigsolve.vision import Vision
 
-import logging
 logging.basicConfig()  # level=logging.DEBUG)
 log = logging.getLogger('main')
 log.setLevel(logging.DEBUG)
@@ -64,240 +62,14 @@ FORBIDDEN
 """
 
 
-class SolverFrame:
-    def __init__(self, solver, bitmap):
-        self.solver = solver
-        self.board = solver.board
-        self.move = []
-        self.moves = self.solver.valid_moves()
-        self.bitmap = bitmap
-
-    @staticmethod
-    def _execute(tiles, exists):
-        for tile in tiles:
-            tile.exists = exists
-
-    def run(self):
-        if self.move:
-            self._execute(self.move, True)
-            self.move = []
-
-        while self.moves:
-            move = self.moves.pop()
-            bits = ~Tile.bitmap(move)
-            bitmap = self.bitmap & bits
-            if bitmap in self.solver.bitmaps:
-                self.solver.bitmap_hits += 1
-                continue
-            self.move = move
-            self._execute(move, False)
-            return bitmap
-        return None
-
-
-class Solver:
-    def __init__(self, board):
-        self.board = board
-        self.stack = None
-        self.solution = []  # Or best attempt.
-        self.won = None
-        self.bitmaps = set()
-        self.bitmap_hits = 0
-        self.iterations = 0
-
-    def save_solution(self):
-        self.solution = [frame.move for frame in self.stack]
-        return self.solution
-
-    def solve(self, steps=None):
-        self.won = None
-        if self.stack is None:
-            bitmap = self.board.bitmap()
-            self.iterations = 0
-            self.bitmaps = {bitmap}
-            self.bitmap_hits = 0
-            self.stack = [SolverFrame(self, bitmap)]
-
-        while steps is None or steps > 0:
-            self.iterations += 1
-            top = self.stack[-1]
-            if steps:
-                steps -= 1
-            bitmap = top.run()
-
-            if bitmap:  # Successfully made a move, additional moves exist
-                self.bitmaps.add(bitmap)
-                self.stack.append(SolverFrame(self, bitmap))
-                continue
-            if bitmap is None:  # Failed to make a move, so backtracking.
-                if len(self.stack) > len(self.solution):  # Save new best attempt if it is one.
-                    self.save_solution()
-                self.stack.pop()
-                if not self.stack:
-                    self.won = False
-                    return False  # Loss condition triggered.
-                continue
-
-            # Still here, so bitmap was zero meaning no tiles exist after doing this move.
-            # WE WIN!
-            self.save_solution()
-            self.won = True
-            return True
-        # Ran out of steps
-        return None
-
-    def valid_moves(self):
-        """
-        Returns a list of valid moves.  If there are any moves which are guaranteed to be safe, the list will be truncated
-        and only contain one of those moves.
-
-        The following moves are considered 'safe':
-        - Removing the last pair of mors and vitae from the board.
-        - Removing gold from the board.
-        - Removing the last quicksilver (and silver) from the board.
-        - Removing the last salt when paired with the last of any elemental
-        - Removing the last two salts when paired with the last one of two different elementals  (4 tiles total)
-        - Removing the last two, four, six or eight copies of an element if all remaining salt has no illegal neighbors.
-          (Or if there's no remaining salt)
-
-        :param board: Board.
-        :return: A list of lists with each tuple being tiles that are removed if that move is played.
-        """
-        board = self.board
-        moves = []
-
-        # Build list of all legal tiles.
-        legal_tiles = board.legal_tiles()
-
-        if not legal_tiles:
-            return moves  # No legal moves!
-
-        # Fast exit for gold, if it's gold...
-        if len(legal_tiles) == 1:
-            if legal_tiles[0].element == 'gold' and not board.catalog['silver']:
-                return [legal_tiles]
-            return moves  # No legal moves!
-
-        # Catalog legal tiles by type.
-        catalog = defaultdict(list)
-        for tile in legal_tiles:
-            element = tile.element
-            catalog[element].append(tile)
-
-        # Handle metals and quicksilver.
-        # List of legal metals
-        remaining_metals = board.remaining_metals()
-        legal_metals = list(itertools.takewhile(operator.attrgetter('legal'), remaining_metals))
-
-        if legal_metals:
-            quicksilver = catalog['quicksilver']
-            quicksilver_count = board.remaining('quicksilver')
-            if (
-                    quicksilver_count == len(quicksilver)  # all the quicksilver
-                    and len(legal_metals) >= len(remaining_metals)-1  # enough for all the metals (except maybe gold)
-                    and quicksilver_count >= len(remaining_metals)-1  # can play all the metals (except maybe gold)
-            ):
-                # All quicksilver is playable, as are all metals (possibly excluding gold).  Lump that into one move.
-                it = iter(legal_metals)
-                return [list(itertools.chain(*zip(quicksilver, it), it))]
-
-            # Still here?  Well, there's no quicksilver fast exit, but we can add the combinations to the move list.
-            # (If there's no quicksilver, this will be a noop)
-            moves.extend((tile, legal_metals[0]) for tile in quicksilver)
-
-        # Vitae/mors
-        if catalog['vitae'] and catalog['mors']:
-            if len(catalog['vitae']) == board.remaining('vitae') and len(catalog['mors']) == board.remaining('mors'):
-                # All vitae/mors visible, automatic moves.
-                return [list(itertools.chain(*zip(catalog['vitae'], catalog['mors'])))]
-            # Some but not all playable.
-            moves.extend(itertools.product(catalog['vitae'], catalog['mors']))
-
-        # Cardinals and salts.
-        salts = catalog['salt']
-        salts_legal = len(salts)
-        salts_total = board.remaining('salt')
-        salt_is_free = (salts_legal == salts_total)  # All salt is playable and has no impact on legality.
-        if salt_is_free:
-            for tile in Tile.all_neighbors(board.catalog['salt']):
-                if tile.exists and not tile.legal:
-                    salt_is_free = False
-                    break
-
-        cardinal_counts = board.remaining_cardinals()  # Data on how many cardinal elements are left.
-        odd_cardinals = sum(count % 2 for count in cardinal_counts.values())  # How many cardinals have an odd number?
-        if salt_is_free:
-            if salts and not cardinal_counts:  # No cardinals left.  Eliminate all salt.
-                return [catalog['salt']]
-        for element, count in cardinal_counts.items():
-            # Check for cases of all remaining copies of an element being legal.
-            if element not in catalog:
-                continue
-            tiles = catalog[element]
-            legal_count = len(tiles)
-            odd = count % 2
-
-            if legal_count == count and salt_is_free:
-                if odd:  # Odd number, which means there must be at least one salt... and all salt is playable
-                    tiles.append(catalog['salt'][0])  # Destructive to the catalog, but it's about to not matter.
-                return [tiles]
-
-            # Moves without salt.
-            moves.extend(itertools.combinations(tiles, 2))  # May yield no items if numlegal == 1
-
-            # Moves using salt.
-            # Either this tile must have an odd count, or there must be more salts than 1+the number of odd elements.
-            if salts_total > odd_cardinals+1 or odd:
-                moves.extend(itertools.product(salts, tiles))
-
-        # Finally, combinations of salt.
-        if salts_legal - odd_cardinals >= 2:
-            moves.extend(itertools.combinations(salts, 2))
-
-        return moves
-
-
-def click(where, down=0.05, up=0):
-    x, y = where
-    pyautogui.mouseDown(x=x, y=y)
-    time.sleep(down)
-    pyautogui.mouseUp(x=x, y=y)
-    time.sleep(up)
-
-
-class Timer:
-    def __init__(self, description='Timer'):
-        self.elapsed = 0.0
-        self.last = 0.0
-        self.started = None
-        self.description = description
-
-    def start(self):
-        self.started = time.time()
-
-    def stop(self):
-        self.last = time.time() - self.started
-        self.elapsed += self.last
-        self.started = None
-
-    def reset(self):
-        self.last = self.elapsed = 0
-        self.started = None
-
-    def __enter__(self):
-        self.start()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.stop()
-
-
 class Program:
     SORTINDEX = {
         key: ix for ix, key in enumerate(
         ('air', 'earth', 'fire', 'water', 'salt',
          'mors', 'vitae',
          'quicksilver',
-         'mercury', 'tin', 'iron', 'copper', 'silver', 'gold'
+         'mercury', 'tin', 'iron', 'copper', 'silver', 'gold',
+         'quintessence'
          )
         )
     }
@@ -385,8 +157,8 @@ class Program:
         self.datadir = Path(opts.data).resolve()
         log.info(f"Data directory is: {self.datadir}")
         baseline = self.datadir / "empty.png"
-        self.vision = vision = Vision(self.datadir / "empty.png", extents=self.board.extents())
-        log.info(f"Vision initialized with baseline of {baseline}, extents {vision.extents}")
+        self.vision = vision = Vision(self.datadir / "empty.png", bounds=self.board.bounds())
+        log.info(f"Vision initialized with baseline of {baseline}, bounds {vision.bounds}")
         for file in self.datadir.glob('composite.*.png'):
             result = re.match(r'^composite\.(.*)\.png$', file.name.lower())
             if not result:
@@ -491,7 +263,6 @@ class Program:
                     if not opts.dry_run:
                         click(tile.sample_rect.middle, down=opts.mousedown, up=opts.mouseup)
 
-
     def read_board(self, image=None):
         with self.timers['io']:
             if image:
@@ -507,21 +278,23 @@ class Program:
                 tile.element = result
                 tile.exists = result is not None
 
-        for ix, row in enumerate(self.board.rows[1:-1], start=1):
-            output = []
-            for tile in row[1:-1]:
-                if tile.element is None:
-                    text = ''
-                else:
-                    text = tile.element
-                    if tile.legal:
-                        text = text.upper()
-                text = text[:6].center(6)
-                output.append(text)
-            padding = ' ' * (ix % 2 * 3)
-            output = '|'.join(output)
-            print(f"{ix:2}: {padding}{output}")
+        print("\n".join(self.board.lines()))
 
+        # for ix, row in enumerate(self.board.rows[1:-1], start=1):
+        #     output = []
+        #     for tile in row[1:-1]:
+        #         if tile.element is None:
+        #             text = ''
+        #         else:
+        #             text = tile.element
+        #             if tile.legal:
+        #                 text = text.upper()
+        #         text = text[:6].center(6)
+        #         output.append(text)
+        #     padding = ' ' * (ix % 2 * 3)
+        #     output = '|'.join(output)
+        #     print(f"{ix:2}: {padding}{output}")
+        #
         counts = [
             f"{element}={len(tiles)}" for element, tiles in sorted(
                 self.board.catalog.items(),

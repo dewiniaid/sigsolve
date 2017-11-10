@@ -276,6 +276,7 @@ class Board:
         self.tiles = []
         self.dummy = DummyTile(parent=self)
         self.catalog = CatalogDictionary()
+        self.geometry = geometry
 
         # Pad with a row of empties for easier neighbor calculations later.
         blank_row = list(itertools.repeat(self.dummy, diameter + 2))
@@ -360,17 +361,35 @@ class Board:
         """
         return TileBase.bitmap(tile for tile in self.tiles if tile.exists)
 
-    def extents(self):
+    def bounds(self):
         """
         Returns a Rect corresponding to the entire screenspcae area needed by this board
         :return:
         """
-        xmin, ymin, xmax, ymax = self.tiles[0].rect.coords  # Arbitrary initialization
+        return Rect.bounds(
+            itertools.chain(
+                (tile.rect for tile in self.tiles),
+                (tile.sample_rect for tile in self.tiles)
+            )
+        )
 
-        for tile in self.tiles:
-            for rect in tile.rect, tile.sample_rect:
-                xmin = min(xmin, rect.left)
-                xmax = max(xmax, rect.right)
-                ymin = min(ymin, rect.top)
-                ymax = max(ymax, rect.bottom)
-        return Rect(xmin, ymin, xmax, ymax)
+    def lines(self):
+        """
+        Yields printable lines for pretty-printing board state.
+        """
+        for ix, row in enumerate(self.rows[1:-1], start=1):
+            output = []
+            for tile in row[1:-1]:
+                if tile.element is None:
+                    text = ''
+                else:
+                    text = tile.element
+                    if tile.legal:
+                        text = text.upper()
+                text = text[:6].center(6)
+                output.append(text)
+            padding = ' ' * (ix % 2 * 3)
+            output = '|'.join(output)
+            yield f"{ix:2}: {padding}{output}"
+
+

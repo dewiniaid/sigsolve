@@ -11,7 +11,7 @@ import PIL.Image
 import PIL.ImageChops
 import pyscreenshot
 
-from sigsolve import imageutil
+from sigsolve import util
 from sigsolve.board import Board
 
 logging.basicConfig()
@@ -55,11 +55,11 @@ def generate_index(refresh=False):
 
 
 def process_image(image, description):
-    image = imageutil.convert(image, 'RGB')
+    image = util.convert(image, 'RGB')
     if State.blank_image is None:
         fn = (State.datadir / 'empty.png')
         log.debug(f'Loading reference image {fn}')
-        State.blank_image = imageutil.convert(PIL.Image.open(fn), 'RGB')
+        State.blank_image = util.convert(PIL.Image.open(fn), 'RGB')
         log.info('Loaded reference image (size {0.width}x{0.height})'.format(State.blank_image))
 
     if State.defaultdir is None:
@@ -105,7 +105,7 @@ def process_image(image, description):
             path = State.defaultdir / f'tile.{key}.png'
             State.index[key] = path
 
-        imageutil.equalize(localdiff, State.levels).save(path, optimize=True)
+        util.equalize(localdiff, State.levels).save(path, optimize=True)
         processed += 1
 
     log.info(f'Tiles processed: {processed}; skipped: {skipped}; blank: {blank}')
@@ -120,7 +120,7 @@ def generate_composite(outfile, sources, extrema=None):
     minima = maxima = None
 
     for source in sources:
-        image = imageutil.convert(PIL.Image.open(source), 'L')
+        image = util.convert(PIL.Image.open(source), 'L')
         if first_source is None:
             log.debug(f'Starting composite {outfile} using {source}')
             first_source = source
@@ -249,7 +249,7 @@ def main(*args, **kwargs):
             extrema = generate_composite(fn, files, extrema)
 
         fn = compositesdir / 'weightings.png'
-        imageutil.equalize(PIL.Image.eval(PIL.ImageChops.difference(*extrema), lambda x: 255 - x)).save(fn)
+        util.equalize(PIL.Image.eval(PIL.ImageChops.difference(*extrema), lambda x: 255 - x)).save(fn)
 
 
     if opts.test:
@@ -276,10 +276,10 @@ def main(*args, **kwargs):
         for file in sorted(State.index.values()):
             expected = file.parent.name
             results = []
-            image = imageutil.convert(PIL.Image.open(file), 'L')
+            image = util.convert(PIL.Image.open(file), 'L')
             print(f'{file}: ')
             for group, composite in composites.items():
-                results.append((imageutil.score(composite, image, weightings=weightings), group))
+                results.append((util.score(composite, image, weightings=weightings), group))
             results.sort(reverse=True)
 
             best = results[-1][1]

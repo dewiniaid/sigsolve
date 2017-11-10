@@ -11,7 +11,7 @@ import PIL.Image
 import PIL.ImageChops
 import pyscreenshot
 
-from sigsolve import imageutil
+from sigsolve import util
 from sigsolve.board import Board
 
 logging.basicConfig()
@@ -55,11 +55,11 @@ def generate_index(refresh=False):
 
 
 def process_image(image, description):
-    image = imageutil.convert(image, 'RGB')
+    image = util.convert(image, 'RGB')
     if State.blank_image is None:
         fn = (State.datadir / 'empty.png')
         log.debug(f'Loading reference image {fn}')
-        State.blank_image = imageutil.convert(PIL.Image.open(fn), 'RGB')
+        State.blank_image = util.convert(PIL.Image.open(fn), 'RGB')
         log.info('Loaded reference image (size {0.width}x{0.height})'.format(State.blank_image))
 
     if State.defaultdir is None:
@@ -105,7 +105,7 @@ def process_image(image, description):
             State.index[key] = path
 
         equalized = PIL.Image.merge('RGB', tuple(
-            imageutil.equalize(band) for band in cropped.split()
+            util.equalize(band) for band in cropped.split()
         ))
 
         # imageutil.equalize(localdiff, State.levels).save(path, optimize=True)
@@ -123,7 +123,7 @@ def generate_composite(outfile, sources):
     first_source = None
 
     for source in sources:
-        image = imageutil.convert(PIL.Image.open(source), 'RGB')
+        image = util.convert(PIL.Image.open(source), 'RGB')
         if first_source is None:
             log.debug(f'Starting composite {outfile} using {source}')
             first_source = source
@@ -255,7 +255,7 @@ def main(*args, **kwargs):
             image = PIL.Image.open(file)
             print(f'{file}: ')
             for group, composite in composites.items():
-                results.append((imageutil.score(composite, image, exponent=2), group))
+                results.append((util.score(composite, image, exponent=2), group))
             results.sort(reverse=True)
 
             best = results[-1][1]
