@@ -190,6 +190,7 @@ class Program:
 
         if not opts.files:
             played = 0
+            click((0,0)) # Focus the window
             while played < opts.games or not opts.games:
                 if played:
                     log.info('Beginning new game...')
