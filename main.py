@@ -190,7 +190,7 @@ class Program:
 
         if not opts.files:
             played = 0
-            click((0,0)) # Focus the window
+            click((1,1)) # Focus the window WITHOUT triggering the failsafe
             while played < opts.games or not opts.games:
                 if played:
                     log.info('Beginning new game...')
