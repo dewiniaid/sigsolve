@@ -111,10 +111,10 @@ def denumpify(array):
 
 
 def click(where, down=0.05, up=0):
-    x, y = where
-    pyautogui.mouseDown(x=x, y=y)
+    pyautogui.moveTo(*where)
+    pyautogui.mouseDown()
     time.sleep(down)
-    pyautogui.mouseUp(x=x, y=y)
+    pyautogui.mouseUp()
     time.sleep(up)
 
 
